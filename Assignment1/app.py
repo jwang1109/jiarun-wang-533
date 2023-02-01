@@ -7,9 +7,9 @@ from datetime import datetime
 import plotly.express as px
 import os
 
-ek.set_app_key(os.getenv('EikonAPI'))
+ek.set_app_key(os.getenv('eikon_api'))
 
-dt_prc_div_splt = pd.read_csv('../unadjusted_price_history.csv')
+dt_prc_div_splt = pd.read_csv('unadjusted_price_history.csv')
 
 app = Dash(__name__)
 app.layout = html.Div([
@@ -33,6 +33,11 @@ app.layout = html.Div([
         style_table={'height': '300px', 'overflowY': 'auto'}
     ),
     html.H2('Alpha & Beta Scatter Plot'),
+    html.Div([
+        dcc.Input(id='graph-start-date', type='text', value="2022-01-01", placeholder="graph start date"),
+        dcc.Input(id='graph-end-date', type='text', value=datetime.now().strftime("%Y-%m-%d"), placeholder="grpah end date")
+    ]),
+    html.Button('RUN Ab Plot', id='run-ab-plot', n_clicks=0),
     dcc.Graph(id="ab-plot"),
     html.P(id='summary-text', children="")
 ])
@@ -43,7 +48,7 @@ app.layout = html.Div([
     [State('benchmark-id', 'value'), State('asset-id', 'value'),State('start-date','value'),State('end-date','value')],
     prevent_initial_call=True
 )
-def query_refinitiv(n_click, benchmark_id, asset_id,start_date,end_date):
+def query_refinitiv(n_clicks, benchmark_id, asset_id,start_date,end_date):
     assets = [benchmark_id, asset_id,start_date,end_date]
     prices, prc_err = ek.get_data(
         instruments=assets,
@@ -164,8 +169,7 @@ def calculate_returns(history_tbl):
     numerator = dt_prc_div_splt[[dte_col, ins_col, prc_col, div_col]].tail(-1)
     denominator = dt_prc_div_splt[[prc_col, spt_col]].head(-1)
 
-    return(
-        pd.DataFrame({
+    pivot = pd.DataFrame({
         'Date': numerator[dte_col].reset_index(drop=True),
         'Instrument': numerator[ins_col].reset_index(drop=True),
         'rtn': np.log(
@@ -175,18 +179,29 @@ def calculate_returns(history_tbl):
         )
     }).pivot_table(
             values='rtn', index='Date', columns='Instrument'
-        ).to_dict('records')
+        )
+    pivot["Date"] = pd.to_datetime(pivot.index).strftime("%Y-%m-%d")#the original Date looks like this 2022-01-12T00:00:00, but we need 2022-01-12
+    return(pivot.to_dict('records')
     )
 
 @app.callback(
     Output("ab-plot", "figure"),
+    Input("run-ab-plot","n_clicks"),
     Input("returns-tbl", "data"),
-    [State('benchmark-id', 'value'), State('asset-id', 'value')],
+    [State('benchmark-id', 'value'), State('asset-id', 'value'), State('graph-start-date', 'value'),
+     State('graph-end-date', 'value')],
     prevent_initial_call = True
 )
-def render_ab_plot(returns, benchmark_id, asset_id):
+def render_ab_plot(n_clicks,returns, benchmark_id, asset_id,start_date,end_date):
+
+    filtered_returns = []
+    returns_copy = returns.copy()
+    for record in returns_copy:
+        if (start_date<= record['Date']<=end_date):
+            del record['Date']
+            filtered_returns.append(record)
     return(
-        px.scatter(returns, x=benchmark_id, y=asset_id, trendline='ols')
+        px.scatter(filtered_returns, x=benchmark_id, y=asset_id, trendline='ols')
     )
 
 if __name__ == '__main__':
