@@ -11,13 +11,24 @@ ek.set_app_key(os.getenv('eikon_api'))
 
 dt_prc_div_splt = pd.read_csv('unadjusted_price_history.csv')
 
+
+spacer = html.Div(style={'margin': '10px','display':'inline'})
+
 app = Dash(__name__)
 app.layout = html.Div([
     html.Div([
+        html.Label(children="benchmark-id: "),
         dcc.Input(id = 'benchmark-id', type = 'text', value="IVV",placeholder="benchmark"),
+        spacer,
+        html.Label(children="asset-id: "),
         dcc.Input(id = 'asset-id', type = 'text', value="AAPL.O",placeholder="asset"),
-        dcc.Input(id='start-date',type ='text',value ="2022-01-01",placeholder="start date"),
-        dcc.Input(id='end-date',type='text',value= datetime.now().strftime("%Y-%m-%d"),placeholder="end date")
+        spacer,
+        html.Label(children="start-date: "),
+        dcc.Input(id = 'start-date',type ='text',value ="2022-01-01",placeholder="YYYY-MM-DD"),
+        spacer,
+        html.Label(children="end-date: "),
+        dcc.Input(id = 'end-date',type='text',value= datetime.now().strftime("%Y-%m-%d"),placeholder="YYYY-MM-DD"),
+        spacer
     ]),
     html.Button('QUERY Refinitiv', id = 'run-query', n_clicks = 0),
     html.H2('Raw Data from Refinitiv'),
@@ -34,8 +45,11 @@ app.layout = html.Div([
     ),
     html.H2('Alpha & Beta Scatter Plot'),
     html.Div([
+        html.Label(children="grpah-start-date: "),
         dcc.Input(id='graph-start-date', type='text', value="2022-01-01", placeholder="graph start date"),
-        dcc.Input(id='graph-end-date', type='text', value=datetime.now().strftime("%Y-%m-%d"), placeholder="grpah end date")
+        spacer,
+        html.Label(children="grpah-end-date: "),
+        dcc.Input(id='graph-end-date', type='text', value=datetime.now().strftime("%Y-%m-%d"), placeholder="graph end date")
     ]),
     html.Button('RUN Ab Plot', id='run-ab-plot', n_clicks=0),
     dcc.Graph(id="ab-plot"),
