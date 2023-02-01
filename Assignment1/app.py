@@ -9,7 +9,7 @@ import os
 
 ek.set_app_key(os.getenv('EikonAPI'))
 
-dt_prc_div_splt = pd.read_csv('unadjusted_price_history.csv')
+dt_prc_div_splt = pd.read_csv('../unadjusted_price_history.csv')
 
 app = Dash(__name__)
 app.layout = html.Div([
