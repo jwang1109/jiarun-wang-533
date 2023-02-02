@@ -1,5 +1,5 @@
-Notes:
-For 2), I used a placeholder parameter to function as a LABEL. After a user clears all the contents in an Input bar, they can view the label of that bar.
+**Run fetch_refinitiv.py first, then app.py.**
+You may need to install and regisiter an eligible account for **Refinitive Workspace**, **related Python module** and set up **environment varibale**(eikon_api).
 
 
 Assignment Requirements:
