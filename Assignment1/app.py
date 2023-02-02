@@ -251,5 +251,7 @@ def render_ab_tbl(ab_plot):
     return (
         pd.DataFrame({'alpha':[alpha],'beta': [beta], 'risk free return rate': [risk_free_rtn],'asset average return':[asset_avg_rtn],'market average return':[mkt_avg_rtn]}).to_dict('records')
     )
+
+
 if __name__ == '__main__':
     app.run_server(debug=True)
