@@ -7,6 +7,7 @@ from datetime import datetime
 import plotly.express as px
 import os
 
+log = open("log.txt",mode='a',encoding='utf-8')
 ek.set_app_key(os.getenv('eikon_api'))
 
 dt_prc_div_splt = pd.read_csv('unadjusted_price_history.csv')
@@ -17,16 +18,16 @@ spacer = html.Div(style={'margin': '10px','display':'inline'})
 app = Dash(__name__)
 app.layout = html.Div([
     html.Div([
-        html.Label(children="benchmark-id: "),
-        dcc.Input(id = 'benchmark-id', type = 'text', value="IVV",placeholder="benchmark"),
+        html.Label(children="benchmark: "),
+        dcc.Input(id = 'benchmark-id', type = 'text', value="IVV",placeholder="eg.IVV"),
         spacer,
-        html.Label(children="asset-id: "),
-        dcc.Input(id = 'asset-id', type = 'text', value="AAPL.O",placeholder="asset"),
+        html.Label(children="ticker symbol: "),
+        dcc.Input(id = 'asset-id', type = 'text', value="AAPL.O",placeholder="eg.AAPL.O"),
         spacer,
-        html.Label(children="start-date: "),
+        html.Label(children="start date: "),
         dcc.Input(id = 'start-date',type ='text',value ="2022-01-01",placeholder="YYYY-MM-DD"),
         spacer,
-        html.Label(children="end-date: "),
+        html.Label(children="end date: "),
         dcc.Input(id = 'end-date',type='text',value= datetime.now().strftime("%Y-%m-%d"),placeholder="YYYY-MM-DD"),
         spacer
     ]),
@@ -45,15 +46,23 @@ app.layout = html.Div([
     ),
     html.H2('Alpha & Beta Scatter Plot'),
     html.Div([
-        html.Label(children="grpah-start-date: "),
+        html.Label(children="graph start date: "),
         dcc.Input(id='graph-start-date', type='text', value="2022-01-01", placeholder="graph start date"),
         spacer,
-        html.Label(children="grpah-end-date: "),
-        dcc.Input(id='graph-end-date', type='text', value=datetime.now().strftime("%Y-%m-%d"), placeholder="graph end date")
+        html.Label(children="graph end date: "),
+        dcc.Input(id='graph-end-date', type='text', value=datetime.now().strftime("%Y-%m-%d"), placeholder="graph end date"),
+
+
     ]),
-    html.Button('RUN Ab Plot', id='run-ab-plot', n_clicks=0),
+    html.Button('RUN AB Plot', id='run-ab-plot', n_clicks=0),
     dcc.Graph(id="ab-plot"),
+    dash_table.DataTable(
+        id = "ab-tbl",
+        page_action = 'none',
+        style_table ={'heights':'100px','widths':'500px'}
+    ),
     html.P(id='summary-text', children="")
+
 ])
 
 @app.callback(
@@ -217,6 +226,28 @@ def render_ab_plot(n_clicks,returns, benchmark_id, asset_id,start_date,end_date)
     return(
         px.scatter(filtered_returns, x=benchmark_id, y=asset_id, trendline='ols')
     )
+@app.callback(
+    Output("ab-tbl", "data"),
+    Input("ab-plot","figure"),
+    prevent_initial_call = True
+)
+def render_ab_tbl(ab_plot):
+    # alpha = R- E(R)
+    # E(R) =  Rf-beta*(Rm-Rf), which is the trend line of the ab-plot figure
+    #1. extract beta and risk free retrun rate from the ab-plot figure
+    trend_line = ab_plot['data'][1]['hovertemplate']#string type,contains information of the beta and the risk free return rate
+    regression_equation_elements_list = trend_line.split("<br>")[1].strip().split()#list type,contains[asset,'=',beta,'*',benchmark,'+',risk_free_return_rate]
+    beta,risk_free_rtn = float(regression_equation_elements_list[2]), float(regression_equation_elements_list[6])
 
+    #2. extract both return rates of the asset and the market return rates from the ab-plot figure and then calculate their average
+    asset_return = ab_plot['data'][1]['y']#a list of the asset rate of return
+    asset_avg_rtn = sum(asset_return)/len(asset_return)#average return of the asset
+    benchmark_return = ab_plot['data'][1]['x']# a list of the benchmark rate of return
+    mkt_avg_rtn = sum(benchmark_return)/len(benchmark_return) # benchmark average return(AKA:market average return)
+    alpha = asset_avg_rtn - risk_free_rtn - beta * (mkt_avg_rtn-risk_free_rtn)
+
+    return (
+        pd.DataFrame({'alpha':[alpha],'beta': [beta], 'risk free return rate': [risk_free_rtn],'asset average return':[asset_avg_rtn],'market average return':[mkt_avg_rtn]}).to_dict('records')
+    )
 if __name__ == '__main__':
     app.run_server(debug=True)
