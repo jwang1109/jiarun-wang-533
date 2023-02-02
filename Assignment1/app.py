@@ -7,7 +7,6 @@ from datetime import datetime
 import plotly.express as px
 import os
 
-log = open("log.txt",mode='a',encoding='utf-8')
 ek.set_app_key(os.getenv('eikon_api'))
 
 dt_prc_div_splt = pd.read_csv('unadjusted_price_history.csv')
