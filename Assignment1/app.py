@@ -244,6 +244,8 @@ def render_ab_tbl(ab_plot):
     asset_avg_rtn = sum(asset_return)/len(asset_return)#average return of the asset
     benchmark_return = ab_plot['data'][1]['x']# a list of the benchmark rate of return
     mkt_avg_rtn = sum(benchmark_return)/len(benchmark_return) # benchmark average return(AKA:market average return)
+
+    #3.calculate alpha
     alpha = asset_avg_rtn - risk_free_rtn - beta * (mkt_avg_rtn-risk_free_rtn)
 
     return (
