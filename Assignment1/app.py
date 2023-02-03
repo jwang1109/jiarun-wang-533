@@ -6,6 +6,7 @@ from dash import dcc
 from datetime import datetime
 import plotly.express as px
 import os
+from datetime import date
 
 ek.set_app_key(os.getenv('eikon_api'))
 
@@ -23,12 +24,16 @@ app.layout = html.Div([
         html.Label(children="ticker symbol: "),
         dcc.Input(id = 'asset-id', type = 'text', value="AAPL.O",placeholder="eg.AAPL.O"),
         spacer,
-        html.Label(children="start date: "),
-        dcc.Input(id = 'start-date',type ='text',value ="2022-01-01",placeholder="YYYY-MM-DD"),
-        spacer,
-        html.Label(children="end date: "),
-        dcc.Input(id = 'end-date',type='text',value= datetime.now().strftime("%Y-%m-%d"),placeholder="YYYY-MM-DD"),
-        spacer
+        html.Label(children="Date Range: "),
+        dcc.DatePickerRange(
+            id = 'raw-data-date-picker',
+            month_format='YYYY-MM-DD',
+            min_date_allowed = date(2017,1,1),
+            max_date_allowed = datetime.now().strftime("%Y-%m-%d"),
+            initial_visible_month = date(2020,1,1),
+            start_date= date(2022,1,1),
+            end_date = datetime.now().strftime("%Y-%m-%d")
+        )
     ]),
     html.Button('QUERY Refinitiv', id = 'run-query', n_clicks = 0),
     html.H2('Raw Data from Refinitiv'),
@@ -44,21 +49,22 @@ app.layout = html.Div([
         style_table={'height': '300px', 'overflowY': 'auto'}
     ),
     html.H2('Alpha & Beta Scatter Plot'),
+
     html.Div([
-        html.Label(children="graph start date: "),
-        dcc.Input(id='graph-start-date', type='text', value="2022-01-01", placeholder="graph start date"),
-        spacer,
-        html.Label(children="graph end date: "),
-        dcc.Input(id='graph-end-date', type='text', value=datetime.now().strftime("%Y-%m-%d"), placeholder="graph end date"),
-
-
-    ]),
+        html.Label(children="Date Range: "),
+        dcc.DatePickerRange(
+            id='ab-plot-date-picker',
+            start_date=date(2017,1,1),
+            end_date=datetime.now().strftime("%Y-%m-%d"),
+        )],
+        style = {'margin': 'auto', 'width': '50%','text-align':'center'},
+    ),
     html.Button('RUN AB Plot', id='run-ab-plot', n_clicks=0),
     dcc.Graph(id="ab-plot"),
     dash_table.DataTable(
         id = "ab-tbl",
         page_action = 'none',
-        style_table ={'heights':'100px','widths':'500px'}
+        style_cell= {'text-align':'center'}
     ),
     html.P(id='summary-text', children="")
 
@@ -67,11 +73,12 @@ app.layout = html.Div([
 @app.callback(
     Output("history-tbl", "data"),
     Input("run-query", "n_clicks"),
-    [State('benchmark-id', 'value'), State('asset-id', 'value'),State('start-date','value'),State('end-date','value')],
+
+    [State('benchmark-id', 'value'), State('asset-id', 'value'),State('raw-data-date-picker','start_date'),State('raw-data-date-picker','end_date')],
     prevent_initial_call=True
 )
-def query_refinitiv(n_clicks, benchmark_id, asset_id,start_date,end_date):
-    assets = [benchmark_id, asset_id,start_date,end_date]
+def query_refinitiv(n_clicks, benchmark_id, asset_id,start_date,end_date,):
+    assets = [start_date,end_date,benchmark_id, asset_id]
     prices, prc_err = ek.get_data(
         instruments=assets,
         fields=[
@@ -83,7 +90,7 @@ def query_refinitiv(n_clicks, benchmark_id, asset_id,start_date,end_date):
         ],
         parameters={
             'SDate': start_date,
-            'EDate': datetime.now().strftime("%Y-%m-%d"),
+            'EDate': end_date,
             'Frq': 'D'
         }
     )
@@ -98,7 +105,7 @@ def query_refinitiv(n_clicks, benchmark_id, asset_id,start_date,end_date):
         ],
         parameters={
             'SDate': start_date,
-            'EDate': datetime.now().strftime("%Y-%m-%d"),
+            'EDate': end_date,
             'Frq': 'D'
         }
     )
@@ -109,7 +116,7 @@ def query_refinitiv(n_clicks, benchmark_id, asset_id,start_date,end_date):
         parameters={
             "CAEventType": "SSP",
             'SDate': start_date,
-            'EDate': datetime.now().strftime("%Y-%m-%d"),
+            'EDate': end_date,
             'Frq': 'D'
         }
     )
@@ -207,11 +214,29 @@ def calculate_returns(history_tbl):
     )
 
 @app.callback(
+    [Output("ab-plot-date-picker","start_date"),
+     Output("ab-plot-date-picker","end_date"),
+     Output("ab-plot-date-picker","min_date_allowed"),
+     Output("ab-plot-date-picker","max_date_allowed"),
+     Output("ab-plot-date-picker","initial_visible_month")
+     ],
+    [Input("raw-data-date-picker","start_date"),
+     Input("raw-data-date-picker","end_date"),
+     ],
+)
+def update_ab_plot_date_range(start_date,end_date):
+    return(
+        [start_date,end_date,start_date,end_date,start_date]
+    )
+
+
+
+
+@app.callback(
     Output("ab-plot", "figure"),
     Input("run-ab-plot","n_clicks"),
     Input("returns-tbl", "data"),
-    [State('benchmark-id', 'value'), State('asset-id', 'value'), State('graph-start-date', 'value'),
-     State('graph-end-date', 'value')],
+    [State('benchmark-id', 'value'), State('asset-id', 'value'),State('ab-plot-date-picker', 'start_date'),State('ab-plot-date-picker', 'end_date')],
     prevent_initial_call = True
 )
 def render_ab_plot(n_clicks,returns, benchmark_id, asset_id,start_date,end_date):
@@ -231,7 +256,7 @@ def render_ab_plot(n_clicks,returns, benchmark_id, asset_id,start_date,end_date)
     prevent_initial_call = True
 )
 def render_ab_tbl(ab_plot):
-    # Ri = alpha - beta * Rm
+    # E(R) = alpha + beta * Rm
     trend_line = ab_plot['data'][1]['hovertemplate']#string type,contains information of the beta and the risk free return rate
     regression_equation_elements_list = trend_line.split("<br>")[1].strip().split()#list type,contains[asset,'=',beta,'*',benchmark,'+',risk_free_return_rate]
     beta,alpha = float(regression_equation_elements_list[2]), float(regression_equation_elements_list[6])
