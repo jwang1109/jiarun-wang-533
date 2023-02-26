@@ -13,7 +13,7 @@ import refinitiv.data as rd
 
 ek.set_app_key(os.getenv('EIKON_API'))
 
-img_path = 'reactive_graph.jpeg'
+img_path = 'reactive_graph.png'
 spacer = html.Div(style={'margin': '10px', 'display': 'inline'})
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -373,7 +373,6 @@ def render_blotter(n_clicks,history_tbl,asset,alpha1,n1,alpha2,n2):
             filled_exit_orders[filled_exit_orders['status'] == 'LIVE'],
         ])
         live_exit_orders['date'] = pd.to_datetime(next_business_day).date()
-        live_entry_orders = pd.concat([live_entry_orders, live_exit_orders])
 
     filled_exit_orders = filled_exit_orders[
         filled_exit_orders['status'] == 'FILLED'
@@ -393,6 +392,7 @@ def render_blotter(n_clicks,history_tbl,asset,alpha1,n1,alpha2,n2):
             filled_market_orders,
             filled_exit_orders,
             live_entry_orders,
+            live_exit_orders
         ]
     ).sort_values(['trade_id','date'])
 
